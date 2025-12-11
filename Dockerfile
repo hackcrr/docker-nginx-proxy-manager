@@ -62,7 +62,7 @@ ARG TARGETPLATFORM
 ARG BCRYPT_TOOL_VERSION
 COPY --from=xx / /
 COPY src/bcrypt-tool /build
-RUN /build/build.sh "$BCRYPT_TOOL_VERSION"
+RUN chmod +x /build/build.sh && /build/build.sh "$BCRYPT_TOOL_VERSION"
 RUN xx-verify /tmp/go/bin/bcrypt-tool
 COPY --from=upx /usr/bin/upx /usr/bin/upx
 RUN upx /tmp/go/bin/bcrypt-tool
