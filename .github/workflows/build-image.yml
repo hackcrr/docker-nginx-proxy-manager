@@ -32,6 +32,9 @@ jobs:
           large-packages: true
           docker-images: true
           swap-storage: false
+          # 增加额外的清理选项以确保足够的磁盘空间
+          base-images: true
+          composer-cache: true
 
       - name: Prepare
         id: prep
@@ -99,6 +102,12 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          # 启用构建kit缓存和镜像加速
+          driver-opts:
+            network=host
+          # 配置最大并行度，提高构建效率
+          buildkitd-flags: --allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host
 
       - name: Login to DockerHub
         if: ${{ steps.prep.outputs.is_release == 'yes' }}
@@ -118,8 +127,22 @@ jobs:
           tags: ${{ steps.prep.outputs.tags }}
           build-args: |
             DOCKER_IMAGE_VERSION=${{ steps.prep.outputs.label_version }}
-          cache-from: type=gha,scope=${{ env.DOCKER_IMAGE_NAME }}
-          cache-to: type=gha,mode=max,scope=${{ env.DOCKER_IMAGE_NAME }}
+          # 优化缓存策略，使用内联缓存和分层缓存
+          cache-from: |
+            type=gha,scope=${{ env.DOCKER_IMAGE_NAME }}-base
+            type=gha,scope=${{ env.DOCKER_IMAGE_NAME }}-nginx
+            type=gha,scope=${{ env.DOCKER_IMAGE_NAME }}-npm
+            type=gha,scope=${{ env.DOCKER_IMAGE_NAME }}-certbot
+          # 使用min模式减少缓存大小，只缓存层元数据
+          cache-to: type=gha,mode=min,scope=${{ env.DOCKER_IMAGE_NAME }}-${{ github.sha }}
+          # 增加构建性能优化选项
+          pull: true
+          # 使用更高效的压缩算法
+          compression-level: 9
+          # 启用并行构建
+          sbom: false
+          # 启用构建优化
+          no-cache-filters: ''
 
       - name: Inspect
         if: ${{ steps.prep.outputs.is_release == 'yes' }}

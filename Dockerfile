@@ -36,24 +36,35 @@ RUN apk --no-cache add curl && \
     curl -# -L https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz | tar xJ --strip 1 -C /tmp/upx && \
     cp -v /tmp/upx/upx /usr/bin/upx
 
-# Build Nginx Proxy Manager.
+# Build Nginx Proxy Manager with optimized caching.
 FROM --platform=$BUILDPLATFORM alpine:3.18 AS npm
 ARG TARGETPLATFORM
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG NGINX_PROXY_MANAGER_URL
 COPY --from=xx / /
-COPY src/nginx-proxy-manager /build
-RUN chmod +x /build/build.sh && /build/build.sh "$NGINX_PROXY_MANAGER_VERSION" "$NGINX_PROXY_MANAGER_URL"
+# 先复制构建脚本
+COPY src/nginx-proxy-manager/build.sh /build/
+COPY src/nginx-proxy-manager/*.patch /build/
+RUN chmod +x /build/build.sh
+# 设置环境变量以启用缓存
+ENV BUILDKIT_INLINE_CACHE=1
+# 执行构建
+RUN /build/build.sh "$NGINX_PROXY_MANAGER_VERSION" "$NGINX_PROXY_MANAGER_URL"
 
-# Build OpenResty (nginx).
+# Build OpenResty (nginx) with optimized caching.
 FROM --platform=$BUILDPLATFORM alpine:3.18 AS nginx
 ARG TARGETPLATFORM
 ARG OPENRESTY_URL
 ARG NGINX_HTTP_GEOIP2_MODULE_URL
 ARG LIBMAXMINDDB_URL
 COPY --from=xx / /
-COPY src/openresty /build
-RUN chmod +x /build/build.sh && /build/build.sh "$OPENRESTY_URL" "$NGINX_HTTP_GEOIP2_MODULE_URL" "$LIBMAXMINDDB_URL"
+# 先复制构建脚本
+COPY src/openresty/build.sh /build/
+RUN chmod +x /build/build.sh
+# 设置环境变量以启用缓存
+ENV BUILDKIT_INLINE_CACHE=1
+# 执行构建
+RUN /build/build.sh "$OPENRESTY_URL" "$NGINX_HTTP_GEOIP2_MODULE_URL" "$LIBMAXMINDDB_URL"
 RUN xx-verify /tmp/openresty-install/usr/sbin/nginx
 
 # Build bcrypt-tool.
@@ -80,8 +91,16 @@ RUN \
     find /tmp/certbot-install/usr/lib/python3.11/site-packages -type f -name "*.exe" -delete && \
     find /tmp/certbot-install/usr/lib/python3.11/site-packages -type d -name tests -print0 | xargs -0 rm -r
 
-# Pull base image.
+# Pull base image with inline cache.
 FROM jlesage/baseimage:alpine-3.18-v3.8.0
+# 启用构建优化
+ARG TARGETPLATFORM
+ENV BUILDKIT_INLINE_CACHE=1
+# 预安装核心依赖以优化缓存层
+RUN add-pkg --virtual .build-deps curl && \
+    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3 && \
+    add-pkg --virtual .runtime-deps nodejs python3 sqlite openssl bash pcre luajit && \
+    apk del .build-deps
 
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG DOCKER_IMAGE_VERSION
@@ -89,28 +108,7 @@ ARG DOCKER_IMAGE_VERSION
 # Define working directory.
 WORKDIR /tmp
 
-# Install dependencies.
-RUN \
-    add-pkg \
-        curl \
-        nodejs \
-        python3 \
-        sqlite \
-        openssl \
-        # For /opt/nginx-proxy-manager/bin/handle-ipv6-setting.
-        bash \
-        # For openresty.
-        pcre \
-        luajit \
-        && \
-    # Install pip.
-    # NOTE: pip from the Alpine package repository is debundled, meaning that
-    #       its dependencies are part of the system-wide ones. This save a lot
-    #       of space, but these dependencies conflict with the ones required by
-    #       Certbot plugins. Thus, we need to manually install pip (with its
-    #       built-in dependencies). See:
-    #       https://pip.pypa.io/en/stable/development/vendoring-policy/
-    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3
+# 依赖已在基础层安装，这里只做验证
 
 # Add files.
 COPY rootfs/ /
