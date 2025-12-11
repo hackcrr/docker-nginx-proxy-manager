@@ -43,7 +43,7 @@ ARG NGINX_PROXY_MANAGER_VERSION
 ARG NGINX_PROXY_MANAGER_URL
 COPY --from=xx / /
 COPY src/nginx-proxy-manager /build
-RUN /build/build.sh "$NGINX_PROXY_MANAGER_VERSION" "$NGINX_PROXY_MANAGER_URL"
+RUN chmod +x /build/build.sh && /build/build.sh "$NGINX_PROXY_MANAGER_VERSION" "$NGINX_PROXY_MANAGER_URL"
 
 # Build OpenResty (nginx).
 FROM --platform=$BUILDPLATFORM alpine:3.18 AS nginx
