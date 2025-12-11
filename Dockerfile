@@ -53,7 +53,7 @@ ARG NGINX_HTTP_GEOIP2_MODULE_URL
 ARG LIBMAXMINDDB_URL
 COPY --from=xx / /
 COPY src/openresty /build
-RUN /build/build.sh "$OPENRESTY_URL" "$NGINX_HTTP_GEOIP2_MODULE_URL" "$LIBMAXMINDDB_URL"
+RUN chmod +x /build/build.sh && /build/build.sh "$OPENRESTY_URL" "$NGINX_HTTP_GEOIP2_MODULE_URL" "$LIBMAXMINDDB_URL"
 RUN xx-verify /tmp/openresty-install/usr/sbin/nginx
 
 # Build bcrypt-tool.
