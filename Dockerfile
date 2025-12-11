@@ -83,7 +83,7 @@ FROM alpine:3.18 AS certbot
 COPY --from=mod_cryptography / /wheels
 RUN \
     apk --no-cache add build-base curl python3 && \
-    curl -# -L "https://bootstrap.pypa.io/pip/3.11/get-pip.py" | python3 && \
+    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3 && \
     pip install --no-cache-dir --root=/tmp/certbot-install --prefix=/usr --find-links /wheels/ --prefer-binary --only-binary=:all: certbot && \
     find /tmp/certbot-install/usr/lib/python3.11/site-packages -type f -name "*.so" -exec strip {} ';' && \
     find /tmp/certbot-install/usr/lib/python3.11/site-packages -type f -name "*.h" -delete && \
@@ -98,7 +98,7 @@ ARG TARGETPLATFORM
 ENV BUILDKIT_INLINE_CACHE=1
 # 使用基础镜像提供的标准方法安装依赖
 RUN apk --no-cache add nodejs python3 sqlite openssl bash pcre luajit curl && \
-    curl -# -L "https://bootstrap.pypa.io/pip/3.11/get-pip.py" | python3
+    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3
 
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG DOCKER_IMAGE_VERSION
